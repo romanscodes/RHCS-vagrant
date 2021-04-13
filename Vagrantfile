@@ -61,10 +61,10 @@ numberOf = {
   'OSD'    =>  { :value => -1, :min => 2, :default => 2 },
   'disks'   =>  { :value => -1, :min => 2, :default => 2 },
   'MON'    =>  { :value => -1, :min => 1, :default => 1 },
-  'RGW'    =>  { :value => -1, :min => 0, :default => 0 },
-  'MDS'    =>  { :value => -1, :min => 0, :default => 0 },
+  'RGW'    =>  { :value => -1, :min => 0, :default => 1 },
+  'MDS'    =>  { :value => -1, :min => 0, :default => 1 },
   'NFS'    =>  { :value => -1, :min => 0, :default => 0 },
-  # 'iSCSI-GWs'    =>  { :value => -1, :min => 0, :default => 0 },
+  'iSCSI-GWs'    =>  { :value => -1, :min => 0, :default => 2 },
   'Client' =>  { :value => -1, :min => 0, :default => 0 }
 }
 
@@ -80,11 +80,12 @@ rhcsLbox = ""
 clusterInit = -1
 clusterInstall = ""
 osdBackend = ""
-rhUserName = ""
-rhPassWord = ""
-rhSubPool = ""
+# If Environment variables are set user input will be not needed
+rhSubPool = ENV["rh_sub_pool"]
+rhUserName = ENV["rh_username"]
+rhPassWord = ENV["rh_password"]
 
-if ARGV[0] == "up"
+if ARGV[0] == "up" or ARGV[0] == "reload"
 
   while true
     print "\n\e[1;37mVersions available: \e[32m\n"
@@ -362,7 +363,7 @@ if clusterInstall == clusterType["rpm-based"][:type]
   numberOf["MDS"][:value].times       { |n| cluster["MDS#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "mdss" } }
   numberOf["Client"][:value].times    { |n| cluster["CLIENT#{n}"] = { :cpus => VMCPU, :mem => VMMEM, :group => "clients" } }
   numberOf["NFS"][:value].times       { |n| cluster["NFS#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "nfss" } }
-  # numberOf["iSCSI-GWs"][:value].times  { |n| cluster["ISCSI#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "nfss" } }
+  numberOf["iSCSI-GWs"][:value].times  { |n| cluster["ISCSI#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "nfss" } }
   numberOf["MON"][:value].times       { |n| cluster["MON#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "mons" } }
 elsif clusterInstall == clusterType["containerized"][:type]
   numberOf["OSD"][:value].times       { |n| cluster["OSD#{n}"]    = { :cpus => VMCPU, :mem => VMMEM, :group => "osds" } }
@@ -376,7 +377,8 @@ Vagrant.configure(2) do |config|
     config.vm.define hostname do |machine|
 
       machine.vm.hostname = hostname
-      machine.vm.synced_folder ".", "/vagrant", disabled: true
+      # stop sharing our project directory
+      machine.vm.synced_folder ".", "/vagrant", id: "vagrant-root", disabled: true
 
       machine.vm.provider "virtualbox" do |vb, override|
         override.vm.box = "generic/rhel8"
@@ -409,22 +411,25 @@ Vagrant.configure(2) do |config|
 
       machine.vm.provider "libvirt" do |lv, override|
         override.vm.box = rhcsVersion
-        override.vm.box_url = rhcsLbox
+        override.vm.hostname = hostname
 
         lv.storage_pool_name = ENV['LIBVIRT_STORAGE_POOL'] || 'default'
-
         # Set VM resources
+        lv.cpu_mode = 'host-passthrough'
+        lv.connect_via_ssh = false
+        lv.driver = "kvm"
         lv.memory = info[:mem]
         lv.cpus = info[:cpus]
+        lv.random_hostname = true
+        lv.nic_model_type = "e1000"
 
         # private VM-only network where ceph client traffic will flow
-        override.vm.network "private_network", type: "dhcp", nic_type: "virtio", auto_config: false
+        override.vm.network "private_network", type: "dhcp", nic_type: "e1000", auto_config: false
 
         # private VM-only network, on specified 10.0.0.x subnet, where ceph cluster traffic will flow
-        override.vm.network "private_network", type: "dhcp", nic_type: "virtio", auto_config: false, ip: "172.16.0.1"
+        override.vm.network "private_network", type: "dhcp", nic_type: "e1000", auto_config: false, ip: "172.16.0.1"
 
         # Use virtio device drivers
-        lv.nic_model_type = "virtio"
         lv.disk_bus = "virtio"
 
         # connect to local libvirtd daemon as root
@@ -459,7 +464,7 @@ Vagrant.configure(2) do |config|
               'mdss'         => (0...numberOf["MDS"][:value]).map    { |j| "MDS#{j}" },
               'rgws'         => (0...numberOf["RGW"][:value]).map    { |j| "RGW#{j}" },
               'nfss'         => (0...numberOf["NFS"][:value]).map    { |j| "NFS#{j}" },
-              # 'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "ISCSI#{j}" },
+              'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "ISCSI#{j}" },
               'clients'      => (0...numberOf["Client"][:value]).map { |j| "CLIENT#{j}" },
               'rhcs-nodes:children' => ['mons','osds','mdss','rgws','nfss','iscsi-gws','clients']
             }
@@ -470,7 +475,7 @@ Vagrant.configure(2) do |config|
               'mdss'         => (0...numberOf["MDS"][:value]).map    { |j| "OSD#{j}" },
               'rgws'         => (0...numberOf["RGW"][:value]).map    { |j| "OSD#{j}" },
               'nfss'         => (0...numberOf["NFS"][:value]).map    { |j| "OSD#{j}" },
-              # 'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "OSD#{j}" },
+              'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "OSD#{j}" },
               'clients'      => (0...numberOf["Client"][:value]).map { |j| "OSD#{j}" },
               'rhcs-nodes:children' => ['mons','osds','mdss','rgws','nfss','iscsi-gws','clients']
             }
@@ -484,6 +489,7 @@ Vagrant.configure(2) do |config|
             ansible_local.provisioning_path = "/usr/share/ceph-ansible"
             ansible_local.inventory_path = "/etc/ansible/hosts"
             ansible_local.extra_vars = {
+              use_new_ceph_iscsi: true,
               dashboard_admin_password: "admin",
               grafana_admin_password: "admin"
             }
@@ -494,11 +500,16 @@ Vagrant.configure(2) do |config|
               ansible_local.playbook = "site-docker.yml.sample"
             end
           end
+
+            machine.vm.provision :ansible do |ansible|
+            ansible.limit = "all"
+              ansible.groups = {
+              'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "ISCSI#{j}" }
+            }
+              ansible.playbook = "ansible/add-iscsi-gws.yml"
+            end
         end # end clusterinit
       end #end provisioning
-
     end # end config
-
   end #end cluster
-
 end
