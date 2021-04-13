@@ -1,0 +1,8 @@
+- name: Configure iSCSI Gateways
+  hosts: iscsi-gws
+  become: true
+
+  tasks:
+
+    - name: Add ISCSI Gateway {{ inventory_hostname }}
+      shell: ceph dashboard iscsi-gateway-add http://admin:admin@{{ inventory_hostname }}:5000
