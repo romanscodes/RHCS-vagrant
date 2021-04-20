@@ -1,0 +1,25 @@
+---
+
+- name: Configure iSCSI Gateways
+  hosts: iscsi-gws
+  become: true
+
+  tasks:
+
+    - name: Make sure port 5000/tcp port is open
+      ansible.posix.firewalld:
+        port: 5000/tcp
+        permanent: yes
+        state: enabled
+
+    - name: Make sure port 3260/tcp port is open
+      ansible.posix.firewalld:
+        port: 3260/tcp
+        permanent: yes
+        state: enabled
+
+    - name: Restart firewalld
+      systemd:
+        state: restarted
+        name: firewalld
+

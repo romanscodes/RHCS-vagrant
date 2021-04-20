@@ -40,9 +40,9 @@ end
 #################
 # General VM settings applied to all VMs
 #################
-VMCPU = 1         # number of cores per VM
-VMMEM = 1536      # amount of memory in MB per VM
-VMDISK = 30       # size of brick disks in GB per VM
+VMCPU = 2         # number of cores per VM
+VMMEM = 2048      # amount of memory in MB per VM
+VMDISK = 125       # size of brick disks in GB per VM
 
 #################
 # Will use standart RHEL8 with user provided subscriptions
@@ -58,13 +58,13 @@ rhcsBox = {
 }
 
 numberOf = {
-  'OSD'    =>  { :value => -1, :min => 2, :default => 2 },
-  'disks'   =>  { :value => -1, :min => 2, :default => 2 },
-  'MON'    =>  { :value => -1, :min => 1, :default => 1 },
+  'OSD'    =>  { :value => -1, :min => 2, :default => 3 },
+  'disks'   =>  { :value => -1, :min => 2, :default => 3 },
+  'MON'    =>  { :value => -1, :min => 2, :default => 3 },
   'RGW'    =>  { :value => -1, :min => 0, :default => 1 },
-  'MDS'    =>  { :value => -1, :min => 0, :default => 1 },
+  'MDS'    =>  { :value => -1, :min => 0, :default => 0 },
   'NFS'    =>  { :value => -1, :min => 0, :default => 0 },
-  'iSCSI-GWs'    =>  { :value => -1, :min => 0, :default => 2 },
+  'iSCSI-GWs'    =>  { :value => -1, :min => 2, :default => 3 },
   'Client' =>  { :value => -1, :min => 0, :default => 0 }
 }
 
@@ -416,12 +416,8 @@ Vagrant.configure(2) do |config|
         lv.storage_pool_name = ENV['LIBVIRT_STORAGE_POOL'] || 'default'
         # Set VM resources
         lv.cpu_mode = 'host-passthrough'
-        lv.connect_via_ssh = false
-        lv.driver = "kvm"
         lv.memory = info[:mem]
         lv.cpus = info[:cpus]
-        lv.random_hostname = true
-        lv.nic_model_type = "e1000"
 
         # private VM-only network where ceph client traffic will flow
         override.vm.network "private_network", type: "dhcp", nic_type: "e1000", auto_config: false
@@ -429,11 +425,11 @@ Vagrant.configure(2) do |config|
         # private VM-only network, on specified 10.0.0.x subnet, where ceph cluster traffic will flow
         override.vm.network "private_network", type: "dhcp", nic_type: "e1000", auto_config: false, ip: "172.16.0.1"
 
-        # Use virtio device drivers
+        # # Use virtio device drivers
         lv.disk_bus = "virtio"
 
         # connect to local libvirtd daemon as root
-        lv.username = "root"
+        # lv.username = "root"
 
         if info[:group] == "osds"
           lvAttachDisks( numberOf["disks"][:value], lv )
@@ -449,13 +445,17 @@ Vagrant.configure(2) do |config|
           ansible.extra_vars = {
               rh_username: rhUserName,
               rh_password: rhPassWord,
-              rh_subscription_pool: rhSubPool
+              rh_subscription_pool: rhSubPool,
+              install_type: clusterInstall
           }
         end
 
         machine.vm.provision :ansible do |ansible|
           ansible.limit = "all"
-          ansible.extra_vars = { install_type: clusterInstall, osd_type: osdBackend }
+          ansible.extra_vars = { install_type: clusterInstall, 
+                                 osd_type: osdBackend, 
+                                 rh_username: rhUserName, 
+                                 rh_password: rhPassWord }
 
           if clusterInstall == clusterType["rpm-based"][:type]
             ansible.groups = {
@@ -503,10 +503,12 @@ Vagrant.configure(2) do |config|
 
             machine.vm.provision :ansible do |ansible|
             ansible.limit = "all"
+            ansible.extra_vars = { install_type: clusterInstall, rh_username: rhUserName, rh_password: rhPassWord }
               ansible.groups = {
+              'osds'         => (0...numberOf["OSD"][:value]).map    { |j| "OSD#{j}" },
               'iscsi-gws'         => (0...numberOf["iSCSI-GWs"][:value]).map    { |j| "ISCSI#{j}" }
             }
-              ansible.playbook = "ansible/add-iscsi-gws.yml"
+              ansible.playbook = "ansible/post-config-ceph.yml"
             end
         end # end clusterinit
       end #end provisioning

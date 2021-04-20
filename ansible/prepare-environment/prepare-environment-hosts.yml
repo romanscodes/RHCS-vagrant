@@ -1,0 +1,26 @@
+---
+
+- name: Prepare hosts
+  hosts: all
+  become: true
+
+  tasks:
+     
+    - name: Create a directory if it does not exist
+      file:
+        path: ~/.ssh/
+        state: directory
+        mode: '0700'
+
+    - name: Generate /etc/hosts file for local name resolution
+      template:
+        src: ../templates/hosts.j2
+        dest: /etc/hosts
+
+    - name: Remove generic machine id
+      file:
+        path: /etc/machine-id
+        state: absent
+
+    - name: re-generate machine id
+      command: systemd-machine-id-setup

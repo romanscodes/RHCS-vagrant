@@ -1,106 +1,16 @@
 ---
 
-- name: Provision
-  hosts: all
-  become: true
+- name: Prepare host subscription and packages
+  include: prepare-environment/prepare-environment-rpm-subscription.yml
 
-  tasks:
+- name: Prepare environment hosts
+  include: prepare-environment/prepare-environment-hosts.yml
 
-    - name: Red Hat subscription - register as user {{ rh_username }}
-      redhat_subscription:
-        state: present
-        username: '{{ rh_username }}'
-        password: '{{ rh_password }}'
-        auto_attach: true
+- name: Generate SSH key for vagrant hosts
+  include: prepare-environment/prepare-environment-vagrant-generate-ssh.yml
 
-    - name: Allow SSH TCP/22 Port
-      lineinfile:
-        dest: /etc/ssh/sshd_config
-        regexp: "^#Port 22(.*)$"
-        line: "Port 22"
+- name: Add SSH key for vagrant hosts
+  include: prepare-environment/prepare-environment-vagrant-add-ssh.yml
 
-    - name: Allow PasswordAuthentication
-      lineinfile:
-        dest: /etc/ssh/sshd_config
-        regexp: "^PasswordAuthentication no(.*)$"
-        line: "PasswordAuthentication yes"
-
-    - name: Stop and Start ssh
-      service:
-        name: sshd
-        state: "{{ item }}"
-      with_items:
-        - stopped
-        - started
-
-    - name: Attach to the user specified pool {{ rh_subscription_pool }}
-      shell: subscription-manager attach --pool={{ rh_subscription_pool }}
-      when: rh_subscription_pool != "auto-attach"
-      ignore_errors: true
-
-    - name: Enable a Red Hat Ceph 4 repositories
-      community.general.rhsm_repository:
-        name:
-          - ansible-2.9-for-rhel-8-x86_64-rpms
-          - rhceph-4-mon-for-rhel-8-x86_64-rpms
-          - rhceph-4-osd-for-rhel-8-x86_64-rpms
-          - rhceph-4-tools-for-rhel-8-x86_64-rpms
-        state: enabled
-      ignore_errors: true
-
-    - name: Install ceph-ansible
-      yum:
-        name: ceph-ansible
-        state: present
-
-    - name: Generate /etc/hosts file for local name resolution
-      template:
-        src: hosts.j2
-        dest: /etc/hosts
-
-    - name: Remove generic machine id
-      file:
-        path: /etc/machine-id
-        state: absent
-
-    - name: re-generate machine id
-      shell: systemd-machine-id-setup
-
-- name: Configure SSH user for vagrant
-  hosts: all
-  become: true
-  become_user: vagrant
-
-  tasks:
-
-    - name: Create a directory if it does not exist
-      file:
-        path: ~/.ssh/
-        state: directory
-        mode: '0700'
-
-    - name: Generate SSH key
-      openssh_keypair:
-        path: "~/.ssh/id_rsa"
-        type: rsa
-        size: 4096
-        state: present
-        force: no
-
-    - name: Fetch vagrant ssh keys from one of the RHCSs nodes
-      fetch:
-        src: ~/.ssh/{{ item }}
-        dest: fetch/
-        flat: yes
-      with_items:
-        - id_rsa
-        - id_rsa.pub
-      delegate_to: "MON0"
-
-    - name: Add pub keys to authorized_keys
-      authorized_key:
-        user: vagrant
-        key: "{{ lookup('file', 'fetch/id_rsa.pub') }}"
-        state: present
-
-...
+- name: Allow SSH tcp/22
+  include: prepare-environment/prepare-environment-allow-ssh.yml

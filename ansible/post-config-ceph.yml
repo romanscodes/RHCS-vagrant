@@ -1,0 +1,4 @@
+---
+
+- name: Add iSCSI Gateways
+  include: post-config/post-config-add-iscsi-gws.yml

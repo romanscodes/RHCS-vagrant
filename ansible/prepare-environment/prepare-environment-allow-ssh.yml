@@ -1,0 +1,27 @@
+---
+
+- name: Allow SSH tcp/22
+  hosts: all
+  become: true
+
+  tasks:
+
+    - name: Allow SSH TCP/22 Port
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^#Port 22(.*)$"
+        line: "Port 22"
+
+    - name: Allow PasswordAuthentication
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication no(.*)$"
+        line: "PasswordAuthentication yes"
+
+    - name: Restart SSH
+      service:
+        name: sshd
+        state: "{{ item }}"
+      with_items:
+        - stopped
+        - started

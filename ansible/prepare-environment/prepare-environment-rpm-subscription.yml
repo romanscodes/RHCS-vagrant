@@ -1,0 +1,36 @@
+---
+
+- name: Red Hat subscription and install rpm packages 
+  hosts: all
+  become: true
+
+  tasks:
+
+    - name: Red Hat subscription - register as user {{ rh_username }}
+      community.general.redhat_subscription:
+        state: present
+        username: '{{ rh_username }}'
+        password: '{{ rh_password }}'
+        auto_attach: true
+
+    - name: Attach to the user specified pool {{ rh_subscription_pool }}
+      community.general.redhat_subscription:
+        state: present
+        username: '{{ rh_username }}'
+        password: '{{ rh_password }}'
+        pool_ids: '{{ rh_subscription_pool }}'
+
+    - name: Enable a Red Hat Ceph 4 repositories
+      community.general.rhsm_repository:
+        name:
+          - ansible-2.9-for-rhel-8-x86_64-rpms
+          - rhceph-4-mon-for-rhel-8-x86_64-rpms
+          - rhceph-4-osd-for-rhel-8-x86_64-rpms
+          - rhceph-4-tools-for-rhel-8-x86_64-rpms
+        state: enabled
+      ignore_errors: true
+
+    - name: Install ceph-ansible
+      yum:
+        name: ceph-ansible
+        state: present

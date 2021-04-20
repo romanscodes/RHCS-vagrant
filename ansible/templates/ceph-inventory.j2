@@ -53,5 +53,8 @@
 {{ host }}
 {% endfor %}
 {% endif %}
+
+{% if groups['osds'] is defined and groups['osds']|length > 0 %}
 [grafana-server]
-MON0
+{{ groups['osds'][0] }}
+{% endif %}

@@ -1,0 +1,25 @@
+---
+
+- name: Generate SSH key for ceph ansible playbook
+  hosts: OSD0
+  become: true
+  become_user: vagrant
+
+  tasks:
+
+    - name: Generate SSH key
+      openssh_keypair:
+        path: "~/.ssh/id_rsa"
+        type: rsa
+        size: 4096
+        state: present
+        force: no
+
+    - name: Fetch SSH keys
+      fetch:
+        src: ~/.ssh/{{ item }}
+        dest: ../fetch/
+        flat: yes
+      with_items:
+        - id_rsa
+        - id_rsa.pub

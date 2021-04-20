@@ -1,6 +1,6 @@
-# RHCS 4.2 in Vagrant
+# RHCS 3.0 in Vagrant
 
-A Vagrant setup for Red Hat Ceph Storage version 4.2 running in VMs on your machine.
+A Vagrant setup for Red Hat Ceph Storage version 3.0 running in VMs on your machine.
 This will setup as many RHCS nodes as you want with a number of OSDs that you can define! You can choose between rpm-based install or Ceph running in containers.
 Optionally you can choose to deploy the monitoring UI [ceph-metrics](https://github.com/ceph/cephmetrics).
 

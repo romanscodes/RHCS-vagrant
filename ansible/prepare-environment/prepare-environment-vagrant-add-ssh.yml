@@ -1,0 +1,22 @@
+---
+
+- name: Add SSH key for ceph ansible playbook
+  hosts: all
+  become: true
+  become_user: vagrant
+
+  tasks:
+
+    - name: Add pub keys to authorized_keys
+      authorized_key:
+        user: vagrant
+        key: "{{ lookup('file', '../fetch/id_rsa.pub') }}"
+        state: present
+
+    - name: Copy SSH private key for each host
+      copy:
+        src: ../fetch/id_rsa
+        dest: /home/vagrant/.ssh/
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
