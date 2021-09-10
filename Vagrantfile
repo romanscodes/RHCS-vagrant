@@ -58,18 +58,18 @@ rhcsBox = {
 }
 
 numberOf = {
-  'OSD'    =>  { :value => -1, :min => 2, :default => 3 },
+  'OSD'    =>  { :value => -1, :min => 2, :default => 6 },
   'disks'   =>  { :value => -1, :min => 2, :default => 3 },
-  'MON'    =>  { :value => -1, :min => 2, :default => 3 },
+  'MON'    =>  { :value => -1, :min => 1, :default => 6 },
   'RGW'    =>  { :value => -1, :min => 0, :default => 1 },
   'MDS'    =>  { :value => -1, :min => 0, :default => 0 },
   'NFS'    =>  { :value => -1, :min => 0, :default => 0 },
-  'iSCSI-GWs'    =>  { :value => -1, :min => 2, :default => 3 },
+  'iSCSI-GWs'    =>  { :value => -1, :min => 2, :default => 6 },
   'Client' =>  { :value => -1, :min => 0, :default => 0 }
 }
 
 clusterType = {
-  "default" => { :type => "rpm-based" },
+  "default" => { :type => "containerized" },
   "rpm-based" => { :type => "rpm" },
   "containerized" => { :type => "csd" },
 }
