@@ -4,12 +4,20 @@
   hosts: '{{ "iscsi-gws" if install_type == "rpm" else "osds" }}'
   become: true
 
+
   tasks:
 
+    - name: Create ISCSI Gateway config file{{ inventory_hostname }}
+      copy:
+        dest: /tmp/gw
+        content: "http://admin:admin@{{ inventory_hostname }}:5000"
+
     - name: Add ISCSI Gateway {{ inventory_hostname }}
-      shell: ceph dashboard iscsi-gateway-add http://admin:admin@{{ inventory_hostname }}:5000
+      shell: ceph dashboard iscsi-gateway-add -i /tmp/gw
       when: install_type == "rpm"
 
     - name: Add ISCSI Gateway {{ inventory_hostname }}
-      shell: podman exec ceph-mon-{{ inventory_hostname }} ceph dashboard iscsi-gateway-add http://admin:admin@{{ inventory_hostname }}:5000
+      shell: |
+       podman cp /tmp/gw ceph-mon-{{ inventory_hostname }}:/tmp/gw
+       podman exec ceph-mon-{{ inventory_hostname }} ceph dashboard iscsi-gateway-add -i /tmp/gw
       when: install_type == "csd"
